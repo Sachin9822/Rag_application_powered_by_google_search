@@ -6,20 +6,44 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceInstructEmbeddings
 from langchain_core.prompts import ChatPromptTemplate,MessagesPlaceholder
-from langchain.chains import create_history_aware_retriever,create_retrieval_chain
+from langchain.chains import create_history_aware_retriever,create_retrieval_chain,LLMChain
 from langchain_community.document_loaders.merge import MergedDataLoader
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.tools import Tool
+from langchain.schema.output_parser import StrOutputParser
 from langchain_community.utilities import GoogleSearchAPIWrapper
-
+from langchain.memory import ConversationBufferMemory
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
+# Inject custom CSS to change the background and text colors
+st.markdown(
+    """
+    <style>
+    .reportview-container .main .block-container {
+        background-color: #ffffff;
+        color: #000000;
+    }
+    .reportview-container .main .block-container h1,
+    .reportview-container .main .block-container h2,
+    .reportview-container .main .block-container h3,
+    .reportview-container .main .block-container h4,
+    .reportview-container .main .block-container h5,
+    .reportview-container .main .block-container h6 {
+        color: #000000;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+memory = ConversationBufferMemory(memory_key="chat_history")
 
 def get_response(user_query):
     return "I dont know"
 
 def get_search_results_urls(user_query):
+    # llm = ChatGoogleGenerativeAI(model="gemini-pro",convert_system_message_to_human=True)
+    # prompt = ChatPromptTemplate.from_messages()
 
     search = GoogleSearchAPIWrapper(k=2)
     def top5_results(query):
@@ -41,8 +65,8 @@ def get_vector_from_url(urls):
     text_splitter = RecursiveCharacterTextSplitter()
     document_chunks = text_splitter.split_documents(documents)
         
-    with st.sidebar:
-        st.write(urls)
+    # with st.sidebar:
+    #     st.write(urls)
     # create vector store from chunks 
     embeddings = HuggingFaceInstructEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vector_store = FAISS.from_documents(documents=document_chunks,embedding=embeddings)
@@ -58,10 +82,17 @@ def get_context_retriever_chain(vector_store):
         ("user","{input} \n Given the above conversation, generate a search query for lookup inorder to get information relevant to the converation")
     ])
 
+    # message = prompt.format_messages(
+    #     input=
+    # )
+    # output_parser = StrOutputParser()
+    # retriever_chain = (prompt | llm | output_parser)
+    # retriever_chain = LLMChain(llm=llm,prompt=prompt,memory=memory)
+    # retriever_chain.
     retriever_chain = create_history_aware_retriever(llm,retriever,prompt)
     return retriever_chain
 
-def get_conversation_rag_chain(retriver_chain):
+def get_conversation_rag_chain(retriever_chain):
     llm = ChatGoogleGenerativeAI(model="gemini-pro",convert_system_message_to_human=True,temperature=0.5)
     prompt = ChatPromptTemplate.from_messages([
         ("system","You are a Expert CA Who will give me advice on how to save the tax and answer only finance related question. Answer the user's question based on the below context\n\n{context}"),
@@ -89,21 +120,27 @@ if "chat_history" not in st.session_state:
     ]
 
 if "vector_store" not in st.session_state:
-    st.session_state.vector_store = []
+    # st.session_state.vector_store = []
+    urls  = ["https://cleartax.in/"]
+    st.session_state.vector_store = get_vector_from_url(urls)
 
 
 user_query = st.chat_input("Type your message here ..")
 if user_query is not None and user_query != "":
 
     # response = get_response(user_query)
-    urls = get_search_results_urls(user_query)
-    st.session_state.vector_store = get_vector_from_url(urls)
+    # urls = get_search_results_urls(user_query)
     retriever_chain = get_context_retriever_chain(st.session_state.vector_store)
+    # response = retriever_chain.invoke({
+        # "input":user_query,
+        # "chat_history":  st.session_state.chat_history
+        # })
+    # st.text(response)
 
     conversation_rag_chain = get_conversation_rag_chain(retriever_chain)
     response = conversation_rag_chain.invoke({
         # "chat_history": st.session_state.chat_history,
-        "input": user_query
+        "input": user_query,
     })
     
     # st.write(response['answer'])

@@ -13,8 +13,13 @@ from langchain.tools import Tool
 from langchain.schema.output_parser import StrOutputParser
 from langchain_community.utilities import GoogleSearchAPIWrapper
 from langchain.memory import ConversationBufferMemory
-from dotenv import load_dotenv
-load_dotenv(override=True)
+# from dotenv import load_dotenv
+import os
+import sys
+# load_dotenv(override=True)
+
+
+
 
 # Inject custom CSS to change the background and text colors
 st.markdown(
@@ -106,7 +111,7 @@ def get_conversation_rag_chain(retriever_chain):
 
 # initialise chat history 
 
-st.title("Chat with websites")
+st.title("Tax Buddy")
 
 # with st.sidebar:
 #     website = st.text_input("Enter the website")
@@ -121,7 +126,7 @@ if "chat_history" not in st.session_state:
 
 if "vector_store" not in st.session_state:
     # st.session_state.vector_store = []
-    urls  = ["https://cleartax.in/"]
+    urls  = ["https://cleartax.in/","https://www.incometax.gov.in/"]
     st.session_state.vector_store = get_vector_from_url(urls)
 
 
